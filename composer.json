@@ -3,7 +3,9 @@
     "description": "Laravel testing trait to count and track database queries",
     "type": "library",
     "license": "MIT",
-    "require": {},
+    "require": {
+        "illuminate/database": "^7.0|^8.0|^9.0"
+    },
     "authors": [
         {
             "name": "Ohffs",
