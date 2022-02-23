@@ -37,7 +37,7 @@ class MyAmazingTest extends TestCase
         $this->assertQueryCountBetween(5, 7);
         $this->assertQueryCountGreaterThan(5);
         $this->assertQueryCountLessThan(7);
-        dd($this->recordedDatabaseQueries);
+        dd($this->getDatabaseQueries());
     }
 }
 ```
