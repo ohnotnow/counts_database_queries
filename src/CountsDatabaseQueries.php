@@ -44,27 +44,55 @@ trait CountsDatabaseQueries
 
     protected function assertQueryCountStaysTheSame(callable $visiting, callable $afterAdding)
     {
-        $before = $this->countQueriesDuring($visiting);
+        $before = $this->queriesDuring($visiting);
 
         $afterAdding();
 
         $secondVisit = null;
-        $after = $this->countQueriesDuring(function () use ($visiting, &$secondVisit) {
+        $after = $this->queriesDuring(function () use ($visiting, &$secondVisit) {
             $secondVisit = $visiting();
         });
 
-        $this->assertSame($before, $after, "Ran {$before} queries, then {$after} after adding more rows.");
+        $this->assertSame(count($before), count($after), $this->queryCountChangedMessage($before, $after));
 
         return $secondVisit;
     }
 
     protected function countQueriesDuring(callable $callback): int
     {
+        return count($this->queriesDuring($callback));
+    }
+
+    private function queriesDuring(callable $callback): array
+    {
         $this->countDatabaseQueries();
-        $this->resetDatabaseQueryCount();
+        $alreadyRun = count(DB::getQueryLog());
 
         $callback();
 
-        return count(DB::getQueryLog());
+        return array_column(array_slice(DB::getQueryLog(), $alreadyRun), 'query');
+    }
+
+    private function queryCountChangedMessage(array $before, array $after): string
+    {
+        $message = sprintf('Ran %d queries, then %d after adding more rows.', count($before), count($after));
+
+        // an eager load lists its ids in the query, so it reads differently on each visit
+        $withoutIdLists = fn (string $query) => preg_replace('/\bin \([^()]*\)/i', 'in (...)', $query);
+
+        $before = array_count_values(array_map($withoutIdLists, $before));
+        $after = array_count_values(array_map($withoutIdLists, $after));
+        $changed = [];
+
+        foreach (array_keys($before + $after) as $query) {
+            $was = $before[$query] ?? 0;
+            $now = $after[$query] ?? 0;
+
+            if ($was !== $now) {
+                $changed[] = "  {$was} -> {$now}  {$query}";
+            }
+        }
+
+        return $message."\n\nQueries that ran a different number of times:\n".implode("\n", $changed);
     }
 }

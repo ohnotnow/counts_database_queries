@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -9,6 +10,7 @@ beforeEach(function () {
     Schema::create('things', function (Blueprint $table) {
         $table->id();
         $table->string('name');
+        $table->foreignId('parent_id')->nullable();
     });
 
     addThings(2);
@@ -85,4 +87,50 @@ it('returns what the second visit returned', function () {
     );
 
     expect($result)->toBe(7);
+});
+
+it('lists the queries that ran a different number of times when it fails', function () {
+    $visiting = function () {
+        foreach (DB::table('things')->get() as $thing) {
+            DB::table('things')->find($thing->id);
+        }
+    };
+
+    expect(fn () => $this->assertQueryCountStaysTheSame(
+        visiting: $visiting,
+        afterAdding: fn () => addThings(5),
+    ))->toThrow(ExpectationFailedException::class, '2 -> 7  select * from "things" where "id" = ? limit 1');
+});
+
+class Thing extends Model
+{
+    public function children()
+    {
+        return $this->hasMany(Thing::class, 'parent_id');
+    }
+}
+
+it('does not list an eager load just because its list of ids grew', function () {
+    $visiting = function () {
+        foreach (Thing::with('children')->get() as $thing) {
+            DB::table('things')->find($thing->id);
+        }
+    };
+
+    expect(fn () => $this->assertQueryCountStaysTheSame(
+        visiting: $visiting,
+        afterAdding: fn () => addThings(5),
+    ))->toThrow(function (ExpectationFailedException $e) {
+        expect($e->getMessage())->not->toContain('parent_id');
+    });
+});
+
+it('leaves a running total alone when counting during a closure', function () {
+    $this->countDatabaseQueries();
+    DB::table('things')->get();
+
+    $count = $this->countQueriesDuring(fn () => DB::table('things')->count());
+
+    expect($count)->toBe(1);
+    $this->assertQueryCountEquals(2);
 });
