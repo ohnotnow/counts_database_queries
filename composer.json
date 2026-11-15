@@ -16,5 +16,14 @@
         "psr-4": {
             "Ohffs\\CountsDatabaseQueries\\": "src/"
         }
+    },
+    "require-dev": {
+        "orchestra/testbench": "^11.3",
+        "pestphp/pest": "^5.3"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }

@@ -11,6 +11,11 @@ trait CountsDatabaseQueries
         DB::enableQueryLog();
     }
 
+    protected function resetDatabaseQueryCount()
+    {
+        DB::flushQueryLog();
+    }
+
     protected function getDatabaseQueries()
     {
         return DB::getQueryLog();
@@ -35,5 +40,31 @@ trait CountsDatabaseQueries
     {
         $this->assertGreaterThanOrEqual($min, count(DB::getQueryLog()));
         $this->assertLessThanOrEqual($max, count(DB::getQueryLog()));
+    }
+
+    protected function assertQueryCountStaysTheSame(callable $visiting, callable $afterAdding)
+    {
+        $before = $this->countQueriesDuring($visiting);
+
+        $afterAdding();
+
+        $secondVisit = null;
+        $after = $this->countQueriesDuring(function () use ($visiting, &$secondVisit) {
+            $secondVisit = $visiting();
+        });
+
+        $this->assertSame($before, $after, "Ran {$before} queries, then {$after} after adding more rows.");
+
+        return $secondVisit;
+    }
+
+    protected function countQueriesDuring(callable $callback): int
+    {
+        $this->countDatabaseQueries();
+        $this->resetDatabaseQueryCount();
+
+        $callback();
+
+        return count(DB::getQueryLog());
     }
 }
