@@ -42,15 +42,15 @@ trait CountsDatabaseQueries
         $this->assertLessThanOrEqual($max, count(DB::getQueryLog()));
     }
 
-    protected function assertQueryCountStaysTheSame(callable $visiting, callable $afterAdding)
+    protected function assertQueryCountStaysTheSame(callable $visit, callable $revisitAfterChanging)
     {
-        $before = $this->queriesDuring($visiting);
+        $before = $this->queriesDuring($visit);
 
-        $afterAdding();
+        $revisitAfterChanging();
 
         $secondVisit = null;
-        $after = $this->queriesDuring(function () use ($visiting, &$secondVisit) {
-            $secondVisit = $visiting();
+        $after = $this->queriesDuring(function () use ($visit, &$secondVisit) {
+            $secondVisit = $visit();
         });
 
         $this->assertSame(count($before), count($after), $this->queryCountChangedMessage($before, $after));
@@ -75,7 +75,7 @@ trait CountsDatabaseQueries
 
     private function queryCountChangedMessage(array $before, array $after): string
     {
-        $message = sprintf('Ran %d queries, then %d after adding more rows.', count($before), count($after));
+        $message = sprintf('Ran %d queries, then %d on the second visit.', count($before), count($after));
 
         // an eager load lists its ids in the query, so it reads differently on each visit
         $withoutIdLists = fn (string $query) => preg_replace('/\bin \([^()]*\)/i', 'in (...)', $query);
